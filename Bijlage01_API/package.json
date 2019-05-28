@@ -1,0 +1,20 @@
+{
+  "name": "find-my-burger",
+  "version": "1.0.0",
+  "description": "",
+  "scripts": {
+    "start": "node app.js"
+  },
+  "engines": {
+    "node": "8.9.4"
+  },
+  "dependencies": {
+    "body-parser": "^1.18.3",
+    "express": "^4.16.4",
+    "install": "^0.12.2",
+    "javascript-astar": "^0.4.1",
+    "jimp": "^0.6.0",
+    "simplify-js": "^1.2.3",
+    "smooth-polyline": "^1.0.6"
+  }
+}

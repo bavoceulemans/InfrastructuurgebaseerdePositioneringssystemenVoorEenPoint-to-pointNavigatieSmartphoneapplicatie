@@ -1,0 +1,7 @@
+---
+applications:
+- name:      find-my-burger
+  memory:    128M
+  command:   node app.js
+  env:
+    env_type: production

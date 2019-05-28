@@ -1,0 +1,10 @@
+image: node:10.15.0
+pipelines:
+  default:
+  - step:
+      script:
+        - npm install
+        - curl -L "https://cli.run.pivotal.io/stable?release=linux64-binary&source=github" | tar -zx
+        - mv cf /usr/local/bin
+        - cf login -a https://api.eu-gb.bluemix.net -o "Optis Intern" -s "stages" -u $BLUEMIX_USER -p $BLUEMIX_PASSWORD
+        - cf push -n "find-my-burger"
