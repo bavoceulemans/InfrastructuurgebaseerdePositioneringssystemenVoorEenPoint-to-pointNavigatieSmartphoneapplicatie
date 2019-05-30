@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+	<meta charset="utf-8" />
+	<meta name="format-detection" content="telephone=no">
+        <meta name="msapplication-tap-highlight" content="no">
+        <meta name="viewport" content="user-scalable=no, initial-scale=1, maximum-scale=1, minimum-scale=1, width=device-width">
+    <title>Maptest</title>
+
+    <script>
+        // Redirect console.log when running from Evothings Workbench.
+        if (window.hyper && window.hyper.log) { console.log = hyper.log }
+    </script>
+    
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.7.2/css/all.css" integrity="sha384-fnmOCqbTlWIlj8LyTjo7mOUStjsKC4pOpQbqyi7RrhN7udi9RwhKkMHpvLbHG9Sr" crossorigin="anonymous">
+
+	<style>
+        html {
+            width: 100%;
+            height: 100%;
+        }
+        body {
+            margin: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: url(SintNiklaas.png);
+            background-repeat: no-repeat;
+        }
+        #map {
+            position: absolute;
+            left: 0;
+            top: 0;
+        }
+
+        .bubble {
+            display: inline-block;
+            position: absolute;
+            left: 0;
+            top: 0;
+            background-color: rgba(37, 149, 250, 0.4);
+            padding: 7px;
+            border-radius: 10px;
+        }
+        .bubble:hover {
+            padding: 12px;
+            margin-left: -5px;
+            margin-top: -5px;
+        }
+
+        #zoomicons {
+            position: absolute;
+            bottom: 15px;
+            right: 15px;
+            display: inline-block;
+        }
+        .navicon {
+            padding: 25px;
+            margin: 0;
+            font-weight: bold;
+            background-color: rgba(37, 149, 250, 0.4);
+        }
+        #plusIcon {
+            margin-bottom: 25px;
+        }
+        #upIcon {
+            position: absolute;
+            top: 0;
+            left: 50%;
+        }
+        #downIcon {
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+        }
+        #leftIcon {
+            position: absolute;
+            top: 50%;
+            left: 0;
+        }
+        #rightIcon {
+            position: absolute;
+            top: 50%;
+            right: 0;
+        }
+	</style>
+</head>
+
+<body draggable="false">
+    <!--
+        1038px/64.52m
+        =16px/m
+    -->
+
+    <div id="bubbles">
+
+    </div>
+
+    <div id="zoomicons">
+        <p id="plusIcon" class="navicon"><i class="fas fa-plus"></i></p>
+        <p id="minIcon" class="navicon"><i class="fas fa-minus"></i></p>
+    </div>
+
+    <div id="moveicons">
+        <p id="upIcon" class="navicon"><i class="fas fa-angle-up"></i></p>
+        <p id="downIcon" class="navicon"><i class="fas fa-angle-down"></i></p>
+        <p id="leftIcon" class="navicon"><i class="fas fa-angle-left"></i></p>
+        <p id="rightIcon" class="navicon"><i class="fas fa-angle-right"></i></p>
+    </div>
+
+    <script src="hammer.min.js"></script>
+	<script src="custommap.js"></script>
+
+</body>
+
+</html>

@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, user-scalable=no
+		initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0" />
+	<title>Eddystone Demo</title>
+
+	<script>
+	// Redirect console.log when running from Evothings Workbench.
+	if (window.hyper && window.hyper.log) { console.log = hyper.log }
+	</script>
+
+	<style>
+	body
+	{
+		font-family: sans-serif;
+	}
+
+	h1
+	{
+		margin-right:110px;
+	}
+
+	.evo-image
+	{
+		position:fixed;
+		right:5px;
+		top:5px;
+		width:100px;
+		height:auto;
+		background:white;
+	}
+	</style>
+</head>
+
+<body>
+
+	<img class="evo-image" src="https://optis.be/wp-content/uploads/2018/04/optis_40.png" />
+
+	<h1>FindMyBurger</h1>
+
+	<p id="message">Preparing...</p>
+
+	<div id="found-beacons"></div>
+
+	<table>
+		<tr>
+			<td colspan=2>
+					<p id="startButton">Start</p>
+			</td>
+		</tr>
+		<tr>
+			<th>db</th>
+			<th>dist</th>
+		</tr>
+		<tr>
+			<td><p id="plusButtonDb">+1</p></td>
+			<td><p id="plusButtonDist">+1</p></td>
+		</tr>
+		<tr>
+			<td><p id="minusButtonDb">-1</p></td>
+			<td><p id="minusButtonDist">-1</p></td>
+		</tr>
+		<tr>
+			<td><p id="valueDb">0</p></td>
+			<td><p id="valueDist">0</p></td>
+		</tr>
+	</table>
+
+	<!--
+	Including cordova.js will automatically include the JavaScript library
+	for Eddystone.
+	-->
+	<script src="cordova.js"></script>
+	<script src="js/kalman.js"></script>
+
+	<script>
+	// Application code starts here. The code is wrapped in a
+	// function closure to prevent overwriting global objects.
+	(function()
+	{
+		//Declare KalmanFilter
+		// var kf = new KalmanFilter();
+	
+		// Dictionary of beacons.
+		var beacons = {};
+		var kfs = {};
+		var fileOB;
+		var db = 0;
+		var dist = 0;
+
+		// Timer that displays list of beacons.
+		var timer = null;
+		var history = [];
+
+		function fail(e) {
+			console.log("FileSystem Error");
+			console.dir(e);
+		}
+
+		function onDeviceReady()
+		{
+			console.log('wut');
+			kfs["value"] = new KalmanFilter();
+			window.requestFileSystem(LocalFileSystem.PERSISTENT, 0, function (fs) {
+				console.log('file system open: ' + fs.name);
+				fs.root.getFile("newPersistentFile.txt", { create: true, exclusive: false }, function (fileEntry) {
+					fileOB = fileEntry;
+					console.log("fileEntry is file?" + fileEntry.isFile.toString());
+					// fileEntry.name == 'someFile.txt'
+					// fileEntry.fullPath == '/someFile.txt'
+					console.log(fileEntry.fullPath);
+					readFile(fileEntry);
+					// writeFile(fileEntry, null);
+
+				}, fail);
+			}, fail);
+
+			document.getElementById("startButton").addEventListener("click", startButton);
+			document.getElementById("plusButtonDb").addEventListener("click", plusButtonDb);
+			document.getElementById("minusButtonDb").addEventListener("click", minusButtonDb);
+			document.getElementById("plusButtonDist").addEventListener("click", plusButtonDist);
+			document.getElementById("minusButtonDist").addEventListener("click", minusButtonDist);
+		}
+
+		function startButton() {
+			// Start tracking beacons!
+			setTimeout(startScan, 50);
+
+			// Timer that refreshes the display.
+			timer = setInterval(updateBeaconList, 2000);
+		}
+
+		function plusButtonDb() {
+			db++;
+			document.getElementById("valueDb").innerHTML = db;
+		}
+
+		function minusButtonDb() {
+			db--;
+			document.getElementById("valueDb").innerHTML = db;
+		}
+
+		function plusButtonDist() {
+			dist++;
+			document.getElementById("valueDist").innerHTML = dist;
+		}
+
+		function minusButtonDist() {
+			dist--;
+			document.getElementById("valueDist").innerHTML = dist;
+		}
+
+		function writeFile(fileEntry, dataObj) {
+			// Create a FileWriter object for our FileEntry (log.txt).
+			fileEntry.createWriter(function (fileWriter) {
+
+				fileWriter.onwriteend = function() {
+					console.log("Successful file write...");
+					readFile(fileEntry);
+				};
+
+				fileWriter.onerror = function (e) {
+					console.log("Failed file write: " + e.toString());
+				};
+
+				// If data object is not passed in,
+				// create a new Blob instead.
+				if (!dataObj) {
+					dataObj = new Blob([''], { type: 'text/plain' });
+				}
+
+				fileWriter.write(dataObj);
+			});
+		}
+
+		function readFile(fileEntry) {
+
+		fileEntry.file(function (file) {
+			var reader = new FileReader();
+
+			reader.onloadend = function() {
+				console.log("Successful file read: " + this.result);
+				displayFileData(fileEntry.fullPath + ": " + this.result);
+			};
+
+			reader.readAsText(file);
+
+		}, fail);
+		}
+
+		function displayFileData() {
+
+		}
+
+		function onBackButtonDown()
+		{
+			evothings.eddystone.stopScan();
+			navigator.app.exitApp();
+		}
+
+		function startScan()
+		{
+			showMessage('Scan in progress.');
+			evothings.eddystone.startScan(
+				function(beacon)
+				{
+					// Update beacon data.
+					beacon.timeStamp = Date.now();
+					beacons[beacon.address] = beacon;
+					if (kfs[beacon.address] == undefined) {
+						kfs[beacon.address] = new KalmanFilter();
+					}
+				},
+				function(error)
+				{
+					showMessage('Eddystone scan error: ' + error);
+				});
+		}
+
+		// Map the RSSI value to a value between 1 and 100.
+		function mapBeaconRSSI(rssi)
+		{
+			if (rssi >= 0) return 1; // Unknown RSSI maps to 1.
+			if (rssi < -100) return 100; // Max RSSI
+			return 100 + rssi;
+		}
+
+		function getSortedBeaconList(beacons)
+		{
+			var beaconList = [];
+			for (var key in beacons)
+			{
+				beaconList.push(beacons[key]);
+			}
+			beaconList.sort(function(beacon1, beacon2)
+			{
+				return mapBeaconRSSI(beacon1.rssi) < mapBeaconRSSI(beacon2.rssi);
+			});
+			return beaconList;
+		}
+
+		function updateBeaconList()
+		{
+			removeOldBeacons();
+			displayBeacons();
+		}
+
+		function removeOldBeacons()
+		{
+			var timeNow = Date.now();
+			for (var key in beacons)
+			{
+				// Only show beacons updated during the last 60 seconds.
+				var beacon = beacons[key];
+				if (beacon.timeStamp + 60000 < timeNow)
+				{
+					delete beacons[key];
+				}
+			}
+		}
+
+		function displayBeacons()
+		{
+			var html = '';
+			var sortedList = getSortedBeaconList(beacons);
+			for (var i = 0; i < sortedList.length; ++i)
+			{
+				var beacon = sortedList[i];
+				var htmlBeacon =
+					'<p>'
+					+	htmlBeaconName(beacon)
+					+	htmlBeaconURL(beacon)
+					+	htmlBeaconNID(beacon)
+					+	htmlBeaconBID(beacon)
+					+	htmlBeaconEID(beacon)
+					+	htmlBeaconVoltage(beacon)
+					+	htmlBeaconTemperature(beacon)
+					+	htmlBeaconRSSI(beacon)
+					+	htmlBeaconRSSIKalman(beacon)
+					+	htmlBeaconDistance(beacon)
+					+ '</p>';
+				html += htmlBeacon
+
+				//Now log it
+				history.push(beacon.rssi);
+				var rssi_kalman = kfs["value"].filter(beacon.rssi)
+				var rssi = beacon.rssi;
+
+				fetch('https://dev.foubert.eu/bavo/optis.php?db='+db+'&dist='+dist+'&rssi='+rssi+'&rssi_kalman='+rssi_kalman);
+
+				dataObj = new Blob([history.join(",")], { type: 'text/plain' });
+				writeFile(fileOB, dataObj);
+				// console.log(beacon.rssi);
+			}
+			document.querySelector('#found-beacons').innerHTML = html;
+		}
+
+		function htmlBeaconName(beacon)
+		{
+			var name = beacon.name || 'no name';
+			return '<strong>' + name + '</strong><br/>';
+		}
+
+		function htmlBeaconURL(beacon)
+		{
+			return beacon.url ?
+				'URL: ' + beacon.url + '<br/>' :  '';
+		}
+
+		function htmlBeaconURL(beacon)
+		{
+			return beacon.url ?
+				'URL: ' + beacon.url + '<br/>' :  '';
+		}
+
+		function htmlBeaconNID(beacon)
+		{
+			return beacon.nid ?
+				'NID: ' + uint8ArrayToString(beacon.nid) + '<br/>' :  '';
+		}
+
+		function htmlBeaconBID(beacon)
+		{
+			return beacon.bid ?
+				'BID: ' + uint8ArrayToString(beacon.bid) + '<br/>' :  '';
+		}
+
+		function htmlBeaconEID(beacon)
+		{
+			return beacon.eid ?
+				'EID: ' + uint8ArrayToString(beacon.eid) + '<br/>' :  '';
+		}
+
+		function htmlBeaconVoltage(beacon)
+		{
+			return beacon.voltage ?
+				'Voltage: ' + beacon.voltage + '<br/>' :  '';
+		}
+
+		function htmlBeaconTemperature(beacon)
+		{
+			return beacon.temperature && beacon.temperature != 0x8000 ?
+				'Temperature: ' + beacon.temperature + '<br/>' :  '';
+		}
+
+		function htmlBeaconRSSI(beacon)
+		{
+			return beacon.rssi ?
+				'RSSI: ' + beacon.rssi + '<br/>' :  '';
+		}
+
+		function htmlBeaconDistance(beacon)
+		{
+			var dist = "";
+			if (beacon.kalman > -90) {
+				// 1m <-> 5m
+				dist = 2.5;
+			} else if (beacon.kalman > -93) {
+				// 5m <-> 10m
+				dist = 5.5;
+			} else if (beacon.kalman > -100) {
+				// 10m <-> 20m
+				dist = 15;
+			}
+			return beacon.rssi ?
+				'Distance: ' + dist :  '';
+		}
+
+		function htmlBeaconRSSIKalman(beacon)
+		{
+			beacon.kalman = kfs[beacon.address].filter(beacon.rssi);
+			return beacon.rssi ?
+				'RSSI-kalman: ' + beacon.kalman + '<br/>' :  '';
+		}
+
+		function uint8ArrayToString(uint8Array)
+		{
+			function format(x)
+			{
+				var hex = x.toString(16);
+				return hex.length < 2 ? '0' + hex : hex;
+			}
+
+			var result = '';
+			for (var i = 0; i < uint8Array.length; ++i)
+			{
+				result += format(uint8Array[i]) + ' ';
+			}
+			return result;
+		}
+
+		function showMessage(text)
+		{
+			document.querySelector('#message').innerHTML = text;
+		}
+
+		// This calls onDeviceReady when Cordova has loaded everything.
+		document.addEventListener('deviceready', onDeviceReady, false);
+
+		// Add back button listener (for Android).
+		document.addEventListener('backbutton', onBackButtonDown, false);
+
+	})(); // End of closure.
+	</script>
+
+</body>
+
+</html>
