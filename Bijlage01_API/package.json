@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "body-parser": "^1.18.3",
-    "express": "^4.16.4",
+    "express": "^4.17.3",
     "install": "^0.12.2",
     "javascript-astar": "^0.4.1",
     "jimp": "^0.6.0",
